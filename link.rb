@@ -10,11 +10,13 @@ class Link < Post
 		puts 'Електроне посилання'
 		@url = gets.chomp
 		puts 'Опис посилання'
-		@text = gets.chomp
+		lines = gets.chomp
+		ukraine(lines)#замінює "?" на "і"
 	end 
 
 	def strings
-		time_string = "Створено: #{@created_at.strftime("%Y.%m.%d, %H:%M")} \n\r \n\r"
-		return [@url, @text, time_string]
+		@created_at = Time.now 
+		time_string = "Створено: #{@created_at.strftime("%Y.%m.%d, %H:%M")} \n\r \n\r"#рядок створення
+		return [@url, @text, time_string]#повертає 
 	end 
 end

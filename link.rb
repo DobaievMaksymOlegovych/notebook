@@ -15,8 +15,21 @@ class Link < Post
 	end 
 
 	def strings
-		@created_at = Time.now 
 		time_string = "Створено: #{@created_at.strftime("%Y.%m.%d, %H:%M")} \n\r \n\r"#рядок створення
 		return [@url, @text, time_string]#повертає 
 	end 
+
+	def to_db_hash
+		return super.merge(
+		{
+			'text' => @text,
+			'url' => @url
+		})
+	end 
+
+	def load_data(data_hash)
+		super(data_hash)#доповняє батьківський метод
+		@text = data_hash['text']#шукає та зберігає
+		@url = data_hash['url']#шукає та зберігає
+	end
 end

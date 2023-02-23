@@ -1,10 +1,51 @@
 require 'Time'
+require 'sqlite3'
 class Post
+	@@SQLITE_DB_FILE = 'notepad.sqlite'
 	def self.post_types
-		[Memo, Link, Task]
+		{'Memo' => Memo, 'Link' => Link, 'Task' => Task}
 	end 
-	def self.create(type_index)
-		return post_types[type_index].new	
+	def self.create(type)
+		return post_types[type].new
+	end
+
+	def self.find(limit, type, id)
+		db = SQLite3::Database.open(@@SQLITE_DB_FILE)
+		if !id.nil?#якщо не порожнє
+			db.results_as_hash = true#робить асоаційний масив 
+			result = db.execute("SELECT * FROM posts WHERE rowid = ?", id )#запит до бази данних
+			result = result[0] if result.is_a? Array #повертає перший знак якщо це масив 
+			db.close #заериває базу данних
+			if result.nil?#пепревіряє чи знайдено
+				abort "Такий id #{id} не знайдено"
+			else 
+				post = create(result['type'])
+
+				post.load_data(result)#метод витягує потрібні дані 
+				return post 
+			end 
+		else
+			db.results_as_hash = false 
+			query = "SELECT rowid, * FROM posts "
+			query += "WHERE type = :type " unless type.nil?
+			query += "ORDER by rowid DESC "
+			query += "LIMIT :limit " unless limit.nil?
+
+			statement = db.prepare(query)
+			statement.bind_param('type', type) unless type.nil? #заиіна плейсхолдера якщо не порожнє значення
+			statement.bind_param('limit', limit) unless limit.nil? #заміна плейсхолдера якщо не порожнє значення
+
+			result = statement.execute!
+			statement.close
+			db.close
+			return result
+
+		end
+
+	end 
+	def load_data(data_hash)
+		@created_at = Time.parse(data_hash['created_at'])#зчитує двту створення
+
 	end
 	def initialize
 		@text = []
@@ -30,18 +71,29 @@ class Post
 	def strings
 	end
 
-	def save
-		file = File.new(file_path, "a")#стоврює файл якщо його не існує
-		for item in strings do
-			file.puts(item)#додає рядки до файлу
-		end 
-		file.close#зачиняє файл
+
+	def save_to_db
+		db = SQLite3::Database.open(@@SQLITE_DB_FILE)
+		db.results_as_hash = true #робить асоаційний масив
+		db.execute(# звернення до БД
+			"INSERT INTO posts(" +
+			to_db_hash.keys.join(', ') +
+			")" + 
+			" VALUES (" +
+			('?,'*to_db_hash.keys.size).chomp(',') + ")",
+			to_db_hash.values
+			)
+		insert_rowid = db.last_insert_row_id# знаходить id і зберігає 
+		db.close# закриває БД
+		return insert_rowid
+	end 
+
+	def to_db_hash
+		{
+			'type' => self.class.name,
+			'created_at' => @created_at.to_s
+		}
 	end
 
-	def file_path
-		current_path = File.dirname(__FILE__)#місце знахоження програми
-		
-		file_name = @created_at.strftime("#{self.class.name} %Y-%m-%d_%H-%M-%S .txt")#створює назву файлу
-		return current_path + "/" + file_name#повертає шлях і назву
-	end 
+	  
 end 
